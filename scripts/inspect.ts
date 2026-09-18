@@ -1,4 +1,4 @@
-/** A scratch query runner — `npm run db:seed` style, for checking what landed. */
+/** Prints a magic link per contact, for walking the portal as each role. */
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 
@@ -6,11 +6,23 @@ async function main() {
   const db = new PrismaClient({
     adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }),
   });
-  const rows = await db.deliverable.findMany({
-    select: { name: true, previewKind: true, preview: true },
+  const links = await db.magicLink.findMany({
+    include: {
+      contact: {
+        select: {
+          name: true,
+          role: true,
+          client: { select: { name: true, portal: { select: { slug: true } } } },
+        },
+      },
+    },
   });
-  for (const r of rows) {
-    console.log(r.previewKind.padEnd(9), r.preview ? "HAS" : "null", r.name);
+  for (const l of links) {
+    const slug = l.contact.client.portal?.slug;
+    if (!slug) continue;
+    console.log(
+      `${l.contact.client.name.padEnd(20)} ${l.contact.role.padEnd(13)} ${l.contact.name.padEnd(18)} /enter/${slug}/${l.token}`,
+    );
   }
   await db.$disconnect();
 }

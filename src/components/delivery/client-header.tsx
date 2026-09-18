@@ -102,7 +102,7 @@ export function ClientHeader({
         </div>
 
         <Link
-          href={`/p/${client.portalSlug}`}
+          href={`/api/preview?slug=${client.portalSlug}&role=APPROVER`}
           target="_blank"
           className={buttonVariants({ variant: "secondary" })}
         >
