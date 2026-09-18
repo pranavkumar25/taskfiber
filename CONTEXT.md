@@ -2,7 +2,8 @@
 
 > This file is the project's memory. Everything done, in flight, and still to do lives here.
 > Update it at the end of every work session and whenever a decision is made.
-> Last updated: 2026-09-18
+> Last updated: 2026-09-18 — everything designed is built; deployed on Vercel against Neon,
+> running as a seeded demo. Backend wiring is the next phase; section 8 is its handover.
 
 ---
 
@@ -66,12 +67,42 @@ is that project's own index, so the folder is self-sufficient.
 | --- | --- | --- |
 | 2026-09-18 | **Scope** = everything designed: delivery 6.1–6.18, portal 6.19–6.28, channels 6.29–6.30. | That is Phase 1 in full plus the designed Phase 2 surfaces. Building to the design rather than to the phase boundary. |
 | 2026-09-18 | **Integrations stubbed** behind per-category adapter interfaces with mock providers. | Every screen works with zero external credentials. Real providers are a second implementation of the same interface. |
-| 2026-09-18 | **Stack** = Next.js 15 App Router, TypeScript, Prisma + Postgres, Tailwind, shadcn/Radix (new-york, neutral, CSS variables), lucide-react, zod, recharts. | Matches `~/inboxrow-public` so conventions carry over. |
-| 2026-09-18 | **Repo** at `/Users/pranavkumar/taskfiber`, git initialised, no remote. | — |
+| 2026-09-18 | **Stack** = Next.js **16.3.5** App Router, React **19.2.8**, TypeScript, Prisma **7.10.0** + Postgres, Tailwind **v4**, Radix, lucide-react, zod. | Matches `~/inboxrow-public` so conventions carry over. The majors matter — see the version notes below the table. |
+| 2026-09-18 | **Repo** at `/Users/pranavkumar/taskfiber`, remote `github.com/pranavkumar25/taskfiber`, deployed from `main` by Vercel. | — |
 | 2026-09-18 | **Visibility control**: 1b in tables (gutter rule + eye button), 1a on detail headers (segmented switch). | The design file's own "try next". Dense where it needs to be, explicit where there is room. |
 | 2026-09-18 | **All-clients row density**: 1g, 48px two-line rows. | Names the actual projects and puts the at-risk reason inline; 1f hides it behind a `title` hover, which fails touch and keyboard users. |
 | 2026-09-18 | **Portal home**: 1e (letter layout) when the lead has written an update, 1d (stacked blocks) as the automatic fallback. | Makes the portal and the weekly digest read as one voice, without ever depending on the agency writing something. |
 | 2026-09-18 | **Influencer creator fees**: agency-configurable, default visible. | Pass-through billing is a real commercial arrangement some agencies disclose and others do not. One `showCreatorFees` flag drives the home tile, Contracts and the invoice footnote together. |
+| 2026-09-18 | **Charts are hand-rolled SVG**, not recharts (which is installed but unused). | The dashboards need four small, exact shapes with the accent as the only colour. A charting library costs more than it gives at that size, and the provenance caption matters more than the chart. |
+| 2026-09-18 | **The agency-side auth bypass is opt-in and named `TASKFIBER_DEMO_MODE`.** | It is an auth bypass, so it does not get to be implicit. In production it runs only when someone types that variable into a dashboard on purpose, and the name says what the deployment is. |
+| 2026-09-18 | **The database client is constructed lazily, never on import.** | Next collects page data at build time by importing route modules. A client built at module scope made a missing `DATABASE_URL` a *build* failure instead of a request-time one. |
+| 2026-09-18 | **The seed anchors its dates to the day it runs** (override with `SEED_TODAY`). | The design's intervals — 6 days overdue, due in 2 — are the point. Absolute dates would rot into a wall of overdue rows a fortnight after seeding. |
+| 2026-09-18 | **Neon, ap-southeast-1, pooled connection** for the deployed demo. | Serverless-friendly, and both `migrate deploy` and the seed run fine through the pooler, so no second direct URL is needed. |
+
+### Version notes — read these before writing code
+
+Three of the majors here differ from what a model is likely to have been trained
+on. `AGENTS.md` says the same thing about Next; these are the specifics that
+actually bit during the build.
+
+- **Next.js 16.** Turbopack is the default. `params`, `searchParams` and
+  `cookies()` are **async** — await them. `PageProps<>`, `LayoutProps<>` and
+  `RouteContext<>` are generated globals, so do not hand-write those prop types.
+  `middleware` is now `proxy`. Read `node_modules/next/dist/docs/` before
+  guessing.
+- **Prisma 7.** Driver adapters are the norm: this repo uses `@prisma/adapter-pg`
+  over node-postgres. The datasource block does **not** take a `url` from the
+  schema any more — connection config lives in `prisma.config.ts`, and the
+  generator is `prisma-client` emitting to `src/generated/prisma`.
+- **Tailwind v4.** CSS-first. There is no `tailwind.config.ts`; the tokens are an
+  `@theme` block in `src/app/globals.css`. Not every v3 utility survived —
+  `border-l-dashed` does not exist, hence `[border-left-style:dashed]`.
+- **React 19 + the React Compiler ESLint rules.** `react-hooks/purity` flags
+  impure calls during render, which is why request time comes from
+  `requestNow()` rather than `Date.now()`.
+
+A trap worth remembering: the Prisma client singleton survives HMR, so after a
+schema change the **dev server must be restarted**, not just reloaded.
 
 ---
 
@@ -131,16 +162,16 @@ X02 Pipedrive, N06 Slack, A01/A02 the AI drafts, S08 instrumentation).
 
 | # | Milestone | Covers | Status |
 | --- | --- | --- | --- |
-| M0 | Scaffold + design system | Next.js app, Tailwind theme, Pretendard + Geist Mono, component families | **Mostly done** — overlays and charts remain |
-| M1 | Schema, auth, tenancy, seed | Prisma schema, better-auth, agency scoping, seed of three agencies | **Mostly done** — better-auth still to wire |
-| M2 | Delivery shell + clients + client record | 6.1–6.5, 6.7 | **In progress** — shell and 6.3 done |
-| M3 | Deliverables, slide-over, publish, approvals | 6.6, 6.8 | Not started |
-| M4 | Portal builder, templates, onboarding, intake | 6.9–6.11 | Not started |
-| M5 | Cross-client views | 6.12–6.13 | Not started |
-| M6 | Contracts, finance, reports, integrations, team | 6.14–6.18 | Not started |
-| M7 | Client portal | 6.19–6.28 | Not started |
-| M8 | Channels | 6.29–6.30 | Not started |
-| M9 | Key states, a11y, end-to-end verification | Key States, mobile 390 | Not started |
+| M0 | Scaffold + design system | Next.js app, Tailwind theme, Pretendard + Geist Mono, component families | **Done** |
+| M1 | Schema, auth, tenancy, seed | Prisma schema, agency scoping, seed of three agencies | **Done** — except better-auth, see §8 |
+| M2 | Delivery shell + clients + client record | 6.1–6.5, 6.7 | **Done** |
+| M3 | Deliverables, slide-over, publish, approvals | 6.6, 6.8 | **Done** |
+| M4 | Portal builder, templates, onboarding, intake | 6.9–6.11 | **Done** |
+| M5 | Cross-client views | 6.12–6.13 | **Done** |
+| M6 | Contracts, finance, reports, integrations, team | 6.14–6.18 | **Done** — on mock adapters, see §8 |
+| M7 | Client portal | 6.19–6.28 | **Done** |
+| M8 | Channels | 6.29–6.30 | **Done** — rendered and webhook-wired, not actually sending |
+| M9 | Key states, a11y, end-to-end verification | Key States, mobile 390 | **Done** |
 
 ---
 
@@ -184,15 +215,163 @@ passing.
 **Not done, and deliberately so**
 
 - **better-auth is not wired.** `currentWorkspace()` resolves the seeded owner
-  and throws in production unless `ALLOW_DEV_SESSION` is set. The client side is
-  fully real — magic link, session cookie, single contact.
+  and throws in production unless `TASKFIBER_DEMO_MODE=1` is set. The client side
+  is fully real — magic link, session cookie, single contact. Full handover in §8.
 - **Integrations are mock providers.** Every screen models connect, sync age and
   failure honestly, but nothing calls an external API yet.
 - Drag-to-reorder in the portal builder is a handle without the drag.
 - Annotation pins render and toggle; adding one by clicking the frame is copy,
   not behaviour.
 
-## 7. Open questions
+### 2026-09-18 (later) — deployed
+
+The code went to GitHub and Vercel, and the first deploy failed. Three things
+came out of fixing it.
+
+**The build failure.** `Failed to collect page data for /enter/[slug]/[token]`,
+caused by `DATABASE_URL is not set` thrown from `src/server/db.ts`. Next imports
+every route module at build time to collect page data, and the module built a
+Prisma client at import scope — so a missing connection string failed the
+*build*, not a request. `db` is now a `Proxy` that constructs the client on
+first property access and memoises it on `globalThis`. The error message it
+throws when the variable really is missing now names both fixes (`npm run db:up`
+locally, set the variable on a host). Verified the way it actually failed:
+
+```
+env -u DATABASE_URL npx next build     # passes
+```
+
+**The auth bypass got a name.** The old `ALLOW_DEV_SESSION` read like a
+developer convenience. It is an auth bypass, so it is now `TASKFIBER_DEMO_MODE`,
+it only applies in production when explicitly set, and it logs a warning on boot
+saying every visitor is signed in as the seeded owner.
+
+**The seed stopped rotting.** It was written against a fixed 18 Sep 2026, so a
+month later every approval would have read as overdue. It now shifts every date
+by the difference between that design date and the day it runs, which preserves
+the design's exact intervals. `SEED_TODAY=2026-09-18` reproduces the original.
+
+**The database is live.** Neon (ap-southeast-1), pooled. Both migrations applied
+and the seed ran through the pooler. `npx tsx scripts/inspect.ts` confirms the
+design's spread — Dhruv Motors 6 days overdue, Halden Labs 4, Sutra Living 2,
+Kiro Foods due tomorrow, three due in 2 days, two in 4 — and prints all 22 magic
+links. The app was then run locally against Neon and every route returned 200.
+
+---
+
+## 7. Deployment and environments
+
+### The three environments
+
+| | Local | Vercel (today) | Launch |
+| --- | --- | --- | --- |
+| Database | Docker Postgres on **5433** | Neon, pooled | Neon, pooled |
+| Agency auth | bypassed | bypassed via `TASKFIBER_DEMO_MODE=1` | better-auth; demo mode deleted |
+| Client auth | real magic links | real magic links | real magic links |
+| Integrations | mock adapters | mock adapters | real providers |
+| Data | seeded | seeded | real |
+
+### Environment variables
+
+| Name | Where | What it does |
+| --- | --- | --- |
+| `DATABASE_URL` | everywhere | Postgres connection string. Locally `postgresql://taskfiber:taskfiber@localhost:5433/taskfiber`. On Vercel, Neon's **pooled** string. |
+| `TASKFIBER_DEMO_MODE` | Vercel only, set to `1` | Runs the agency side unauthenticated as the seeded owner. Without it `currentWorkspace()` throws in production, on purpose. **Delete it the moment better-auth lands.** |
+| `SEED_TODAY` | optional, seed only | `YYYY-MM-DD`. Pins the seed's idea of today; otherwise it uses the run date. |
+
+Port 5432 is occupied by `accelbridge-postgres`, so TaskFiber's local Postgres
+listens on **5433**. `npm run db:up` starts it.
+
+### Pointing the app at a remote database
+
+Both commands work through Neon's pooled connection — no direct URL needed.
+
+```
+DATABASE_URL='<pooled string>' npm run db:deploy:remote   # prisma migrate deploy
+DATABASE_URL='<pooled string>' npm run db:seed:remote     # tsx prisma/seed.ts
+```
+
+The seed is destructive — it clears and rebuilds the workspace. It is safe to
+re-run against the demo database and must never be run against a real one.
+
+### Two things to deal with
+
+- **Rotate the Neon password.** The connection string was pasted into a chat
+  transcript on 2026-09-18. Roll it in the Neon dashboard and update the Vercel
+  variable. Nothing in the repo holds it — `.env` and `.env.local` are
+  gitignored and the string was only ever kept outside the working tree.
+- **`sslmode=require` prints a forward-compatibility warning.** `pg` currently
+  treats `require` as `verify-full`; in `pg` v9 it will relax to libpq
+  semantics, which are weaker. Changing the connection string to
+  `sslmode=verify-full` silences the warning *and* pins today's stricter
+  behaviour. Neon presents a valid certificate, so this is a safe swap.
+
+---
+
+## 8. Handover — what "backend wiring" actually means
+
+Everything below is a deliberate gap, not an oversight. The screens, the data
+model and the server boundaries are real; these are the seams where something
+external has to be plugged in.
+
+### 8.1 Agency authentication
+
+better-auth is installed and unwired. The work:
+
+1. Wire better-auth with the Prisma adapter; `User` and `Member` already exist.
+2. Replace the body of `currentWorkspace()` in `src/server/session.ts` with a
+   real session read. Its signature is already what the app expects, so nothing
+   else needs to change — every delivery-side page goes through it.
+3. Delete `TASKFIBER_DEMO_MODE` from the code and from Vercel.
+4. Enforce the four seeded roles (owner, admin, member, limited) — the team
+   screen already models per-client and per-project scoping.
+
+The **client** side needs none of this. Magic link → `PortalSession` cookie →
+one contact is real today.
+
+### 8.2 The seven integration adapters
+
+Each category under `src/server/integrations/` is an interface with a working
+mock. A real provider is a second implementation of the same interface; no UI
+changes.
+
+| Category | Mock does | Real needs |
+| --- | --- | --- |
+| `storage` | Reads the seeded Drive tree | Google Drive OAuth, folder map, file list, upload, sync age |
+| `esign` | Fakes send and signed-copy states | A provider (Dropbox Sign / Zoho Sign), webhook for signature events |
+| `accounting` | Seeded invoices and aging | Zoho Books read-only pull. **Never a second ledger** |
+| `payments` | UPI deep links, fake settlement | Razorpay + Stripe, and the webhook that stops reminders |
+| `crm` | Seeded deals | Pipedrive/HubSpot pull, won-deal webhook into the handoff modal |
+| `analytics` | Seeded metrics | GA4, Meta Ads, Search Console, Instagram/YouTube/TikTok |
+| `messaging` | Renders the digest and templates, never sends | Email sender, Meta-approved WhatsApp sender, and a scheduler for the weekly digest |
+
+Sync failure is already a first-class propagating state across six surfaces —
+when a real provider fails, that path already works.
+
+### 8.3 Still in Plane's backlog
+
+W10 offboarding · D06 recurring workstreams · X02 Pipedrive · N06 Slack ·
+A01/A02 the AI drafts · S08 instrumentation.
+
+### 8.4 Small UI gaps
+
+- Drag-to-reorder in the portal builder is a handle without the drag.
+- Annotation pins render and toggle; adding one by clicking the frame is copy,
+  not behaviour.
+
+### 8.5 Before the launch version
+
+- [ ] better-auth wired, `TASKFIBER_DEMO_MODE` deleted from code and Vercel
+- [ ] Neon password rotated, `sslmode=verify-full`
+- [ ] Real signup replaces the seeded workspace (the 4-step flow exists)
+- [ ] At least `storage` and `accounting` on real providers — they carry the most screens
+- [ ] A migration path off the seed: the demo database must not become production
+- [ ] Rate-limit magic-link redemption and re-check link expiry
+- [ ] `npm test` still green — those 14 tests are the visibility invariant's proof
+
+---
+
+## 9. Open questions
 
 **Answered** — see the decisions log above for the four design questions.
 
@@ -211,15 +390,12 @@ passing.
 7. How much of the delivery side do agencies actually want, given they run on ClickUp, Asana or
    Linear? The most important unknown in the brief.
 
-**Blocking setup**
-
-- **A `DATABASE_URL` is needed before the first migration.** There is no local Postgres and the Docker
-  daemon is not running. Either start Docker (a `docker-compose.yml` will ship in the repo) or supply a
-  Supabase connection string.
+**Resolved** — the old `DATABASE_URL` blocker is gone. Local runs on Docker Postgres at 5433, the
+deployment on Neon. See §7.
 
 ---
 
-## 8. Reference — the things that are easy to get wrong
+## 10. Reference — the things that are easy to get wrong
 
 ### Design system
 

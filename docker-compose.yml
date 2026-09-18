@@ -1,5 +1,5 @@
 # A local Postgres for development, so nothing external is needed to run the
-# product. Supabase is the deploy target; the connection string is the only
+# product. Neon is the deploy target; the connection string is the only
 # difference.
 services:
   db:

@@ -98,8 +98,8 @@ moves; every interval the design specified is preserved. Set
 ## Not finished, on purpose
 
 - **better-auth is not wired.** `currentWorkspace()` resolves the seeded owner
-  and throws in production unless `ALLOW_DEV_SESSION` is set. The client side is
-  fully real.
+  and throws in production unless `TASKFIBER_DEMO_MODE=1` is set. The client side
+  is fully real — magic link, session cookie, one contact.
 - **Integrations are mock providers.** Every screen models connect state, sync
   age and failure honestly, but nothing calls an external API yet. A real
   provider is a second implementation of the same interface.
