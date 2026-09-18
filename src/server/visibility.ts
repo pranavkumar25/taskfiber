@@ -216,7 +216,9 @@ export function portalQuery(viewer: PortalViewer) {
      * Invoices. The role gate is enforced here as well as at the screen, so a
      * mistake upstream cannot leak a ledger.
      */
-    invoices: () => {
+    // Async so the refusal arrives as a rejection, like every other method
+    // here — a caller should never have to guard this one differently.
+    invoices: async () => {
       if (!canSeeInvoices(role)) throw new PortalAccessError(ModuleKey.INVOICES);
       return db.invoice.findMany({
         where: { clientId },

@@ -1,6 +1,7 @@
 import { getPipeline } from "@/server/cross-client";
 import { currentWorkspace } from "@/server/session";
 import { formatDate, formatMoney, formatSince } from "@/server/format";
+import { nowMs } from "@/server/now";
 import { Banner } from "@/components/ui/feedback";
 import { Card } from "@/components/ui/surface";
 import { FilterPill } from "@/components/ui/field";
@@ -30,7 +31,7 @@ export default async function PipelinePage() {
 
   const closingSoon = deals.filter((d) => {
     if (!d.closeDate) return false;
-    const days = (d.closeDate.getTime() - Date.now()) / 86400000;
+    const days = (d.closeDate.getTime() - nowMs()) / 86400000;
     return days <= 45 && d.stage !== "WON";
   });
 
@@ -82,7 +83,7 @@ export default async function PipelinePage() {
                   const won = d.stage === "WON";
                   const soon =
                     d.closeDate &&
-                    (d.closeDate.getTime() - Date.now()) / 86400000 <= 14 &&
+                    (d.closeDate.getTime() - nowMs()) / 86400000 <= 14 &&
                     !won;
                   return (
                     <Card

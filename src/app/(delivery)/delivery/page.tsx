@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getBoard } from "@/server/cross-client";
 import { currentWorkspace } from "@/server/session";
 import { formatDateShort } from "@/server/format";
+import { requestNow } from "@/server/now";
 import { Card } from "@/components/ui/surface";
 import { FilterPill } from "@/components/ui/field";
 import { cn } from "@/lib/utils";
@@ -157,7 +158,7 @@ export default async function DeliveryPage({ searchParams }: PageProps<"/deliver
                 return (
                   <span key={w.label} className="flex flex-col gap-1.5">
                     {inWeek.map((m) => {
-                      const late = m.state === "MISSED" || (m.date < new Date() && m.state !== "DONE");
+                      const late = m.state === "MISSED" || (m.date < requestNow() && m.state !== "DONE");
                       const internal = m.visibility === "INTERNAL";
                       return (
                         <span
@@ -194,7 +195,7 @@ export default async function DeliveryPage({ searchParams }: PageProps<"/deliver
 
 function nextWeeks(count: number) {
   const out: { label: string; range: string; start: Date; end: Date }[] = [];
-  const base = new Date();
+  const base = requestNow();
   base.setHours(0, 0, 0, 0);
   base.setDate(base.getDate() - ((base.getDay() + 6) % 7)); // back to Monday
   for (let i = 0; i < count; i++) {

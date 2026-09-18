@@ -2,6 +2,7 @@ import Link from "next/link";
 import { db } from "@/server/db";
 import { currentWorkspace } from "@/server/session";
 import { formatDate } from "@/server/format";
+import { nowMs, requestNow } from "@/server/now";
 import { buttonVariants } from "@/components/ui/button";
 import { DataTable, TableHeader, TableRow } from "@/components/ui/surface";
 import { FilterPill } from "@/components/ui/field";
@@ -40,7 +41,7 @@ export default async function DocumentsPage({ searchParams }: PageProps<"/docume
     db.contract.count({
       where: {
         client: { agencyId: agency.id },
-        termEnd: { lte: new Date(Date.now() + 90 * 86400000), gte: new Date() },
+        termEnd: { lte: new Date(nowMs() + 90 * 86400000), gte: requestNow() },
       },
     }),
   ]);

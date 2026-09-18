@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Check } from "lucide-react";
 import { db } from "@/server/db";
 import { currentWorkspace } from "@/server/session";
-import { formatDate, formatDateTime } from "@/server/format";
+import { formatDateTime } from "@/server/format";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardHead } from "@/components/ui/surface";
 import { BrandMark } from "@/components/ui/avatar";

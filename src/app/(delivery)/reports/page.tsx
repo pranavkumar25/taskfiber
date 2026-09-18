@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { db } from "@/server/db";
 import { currentWorkspace } from "@/server/session";
-import { formatDate } from "@/server/format";
 import { Card } from "@/components/ui/surface";
 import { StatusPill } from "@/components/ui/pill";
 import { BrandMark } from "@/components/ui/avatar";

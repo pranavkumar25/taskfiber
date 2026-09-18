@@ -4,10 +4,13 @@ import { ClientStage } from "@/generated/prisma/enums";
 import { clientStageCounts, listClients, type ClientRow } from "@/server/clients";
 import { currentWorkspace } from "@/server/session";
 import { formatDate, formatDueCompact, formatSince } from "@/server/format";
+import { nowMs } from "@/server/now";
 import { StagePill, type Stage } from "@/components/ui/pill";
 import { AddFilterPill, FilterPill } from "@/components/ui/field";
 import { BrandMark } from "@/components/ui/avatar";
 import { DataTable, TableHeader, TableRow } from "@/components/ui/surface";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/feedback";
 import { cn } from "@/lib/utils";
 
 export const metadata = { title: "Clients" };
@@ -49,6 +52,37 @@ export default async function ClientsPage({ searchParams }: PageProps<"/clients"
     clientStageCounts(agency.id),
   ]);
 
+  // Key state · empty workspace. Drive is already connected at this point, so
+  // the useful offer is to import what it already found, not to start typing.
+  if (total === 0) {
+    return (
+      <div className="px-8 pt-8 pb-24">
+        <h1 className="text-h1 font-semibold">Clients</h1>
+        <EmptyState
+          className="mt-6 py-16"
+          action={
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button variant="primary">Import from Drive</Button>
+              <Button variant="secondary">Add one client</Button>
+            </div>
+          }
+        >
+          <span className="block text-h3 font-semibold text-charcoal">
+            Your workspace is ready. No clients yet.
+          </span>
+          <span className="mt-1.5 block">
+            Drive is connected. Add the first client, or import the folders it already found
+            under your clients root.
+          </span>
+        </EmptyState>
+      </div>
+    );
+  }
+
+  // Key state · first client. The portal link is the last onboarding step, and
+  // until it is sent the client sees nothing at all — so say so.
+  const firstRun = total === 1 && !clients[0]?.portalSentAt;
+
   return (
     <div className="px-8 pt-8 pb-24">
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -88,18 +122,39 @@ export default async function ClientsPage({ searchParams }: PageProps<"/clients"
         ))}
       </DataTable>
 
-      <p className="mt-3 text-meta text-steel">
-        {clients.length} client{clients.length === 1 ? "" : "s"} · at-risk reasons are written into
-        the row · select rows for bulk actions
-      </p>
+      {firstRun ? (
+        <div className="mt-4 border-t border-dashed border-smoke pt-4">
+          <p className="text-body font-medium text-charcoal">
+            Next: build {clients[0].name}&rsquo;s portal from the template
+          </p>
+          <p className="mt-1 max-w-xl text-body text-steel">
+            Sending the portal link is the last step.{" "}
+            <span className="font-medium text-charcoal">
+              Nothing is visible to {clients[0].contacts[0]?.name ?? "them"} until you do.
+            </span>
+          </p>
+          <Link
+            href={`/clients/${clients[0].slug}/portal`}
+            className="mt-3 inline-block"
+          >
+            <Button variant="primary" size="sm">
+              Continue onboarding
+            </Button>
+          </Link>
+        </div>
+      ) : (
+        <p className="mt-3 text-meta text-steel">
+          {clients.length} client{clients.length === 1 ? "" : "s"} · at-risk reasons are written
+          into the row · select rows for bulk actions
+        </p>
+      )}
     </div>
   );
 }
 
 function ClientListRow({ client: c }: { client: ClientRow }) {
-  const atRisk = c.stage === ClientStage.AT_RISK || c.stage === ClientStage.RENEWAL;
   const overdue =
-    c.approvals.soonest !== null && c.approvals.soonest.getTime() < Date.now();
+    c.approvals.soonest !== null && c.approvals.soonest.getTime() < nowMs();
 
   // The second line: the reason, when there is one, otherwise the work itself.
   const subtitle = c.healthFlags.length

@@ -30,6 +30,7 @@ export const currentWorkspace = cache(async () => {
           plan: true,
           seats: true,
           syncMode: true,
+          emailSender: true,
         },
       },
     },

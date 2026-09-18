@@ -2,6 +2,7 @@ import Link from "next/link";
 import { db } from "@/server/db";
 import { currentWorkspace } from "@/server/session";
 import { formatDate, formatDueCompact, formatMoney } from "@/server/format";
+import { nowMs } from "@/server/now";
 import { Banner } from "@/components/ui/feedback";
 import { Button } from "@/components/ui/button";
 import { DataTable, TableHeader, TableRow } from "@/components/ui/surface";
@@ -24,7 +25,7 @@ export default async function RenewalsPage() {
     include: { client: { select: { name: true, slug: true, brandColor: true } } },
   });
 
-  const now = Date.now();
+  const now = nowMs();
   const soon = contracts.filter(
     (c) => c.termEnd && c.termEnd.getTime() - now <= 90 * 86400000 && c.termEnd.getTime() > now,
   );

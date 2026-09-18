@@ -142,67 +142,51 @@ Decisions page: `4fbc72e4-d079-4195-9a7b-20a00a01b238`.
 
 ## 6. Progress log
 
-### 2026-09-18
+### 2026-09-18 — everything designed is built
 
-**Done**
+**Shipped**
 
-*Planning*
-- Read the full brief, the 116-row feature list, and all ten design files.
-- Wrote and got approval for the build plan; answered the design's four open
-  questions (see the decisions log).
-- Plane: project `TASK`, 12 feature-area modules, 10 milestone cycles, 92 work
-  items each assigned to exactly one module and one cycle, plus a decisions page.
+All 30 designed screens run on real data: delivery 6.1–6.18, portal 6.19–6.28,
+channels 6.29–6.30. 46 routes. Build clean, lint clean, 14/14 invariant tests
+passing.
 
-*M0 — scaffold and design system*
-- Next.js 16.3.5 / React 19.2 / Tailwind v4 app at `~/taskfiber`.
-- Pretendard self-hosted (4 weights) and Geist Mono via `next/font`.
-- The whole token layer written from `Foundations.dc.html` into `globals.css`:
-  neutrals, product blues, four semantic tones with tints, the two type scales,
-  radii, five elevations, and the two motion values. Reduced-motion respected.
-- Components built: button + kbd, the six-tone status pill with a status→tone
-  mapper, stage/aging/type/version/role/source tags, **the whole visibility
-  system** (both treatments, the tags, the published stamp, the mini-tag),
-  avatars/stacks/brand marks, every form control, cards/tabs/grid-table with
-  geometry-matched skeletons, banners, toasts, empty and denied states.
+| Layer | What is there |
+| --- | --- |
+| Design system | Tokens straight from `Foundations.dc.html`. Pretendard self-hosted, Geist Mono for all data. Agency theming is the single `--accent` variable. Six-tone status pill, both visibility treatments, every form control, cards/tabs/tables with geometry-matched skeletons, overlays, charts, the three real preview renderers. |
+| Data | 40 Prisma models. `visibility` required and internal-defaulting on six models. `src/server/visibility.ts` is the only path a portal read takes. `ApprovalRecord` is append-only — `recordDecision` is its one writer. |
+| Delivery | Shell, signup, home, all-clients at 1g, the nine client-record tabs, project view, the 480px slide-over with its blast-radius confirmation, approvals inbox, portal builder, template library, onboarding, calendar, delivery board, capacity, pipeline with the handoff modal, contracts and renewals, finance, report builder, integrations, team, settings, channels. |
+| Portal | Magic-link landing and redemption, chrome that reflows to a scrollable nav at 390, home in both 1e and 1d, timeline, deliverables, detail with one-tap approve and comment-gated changes, dashboards, documents, invoices with the padlock state, updates, requests, assets, creators, contracts, team, meetings. |
+| Channels | The 600px digest as React Email, three WhatsApp templates, and the inbound webhook that turns a quick reply into an approval record with `channel = whatsapp`. |
+| Proof | `npm test` — visibility defaults, no internal row in any portal read, the three role predicates, the record's single grammar across channels, verbal decisions labelled, empty change requests refused, and the seed's casting. |
 
-*M1 — schema, data, seed*
-- Prisma 7 schema: 40 models, 30 enums. `visibility` is required and defaults to
-  INTERNAL on Project, Milestone, Task, Deliverable, Update and Comment.
-- `src/server/visibility.ts` — the chokepoint. A `PortalViewer` and a closed
-  query surface; the three role predicates live there and nowhere else.
-- `src/server/approvals.ts` — the append-only record and its one grammar,
-  reused across portal, email and WhatsApp. `recordDecision` is the only writer.
-- `src/server/publish.ts` — publish/unpublish and row-level visibility, each
-  writing an ActivityLog row. `publishRecipients` fills the confirmation copy.
-- Local Postgres on **port 5433** (5432 was taken by the accelbridge project),
-  initial migration applied, and a 1,633-line seed that builds the design's
-  casting exactly: 3 agencies, 6 shipped templates, 14 Fieldnote clients, Kiro
-  Foods to the bottom, Tidewater with its pinned Figma annotation, Lumen with
-  six creators, 22 magic links.
+**Bugs the build surfaced, and what fixed them**
 
-*M2 — delivery side*
-- The shell: 240px sidebar (collapsible on `[`), 48px topbar, live breadcrumbs,
-  counts, search affordance.
-- **6.3 All clients** at 1g density, verified in the browser: 14 rows fit,
-  sorted by next milestone, at-risk reasons written into the row.
+- *An internal milestone reached the weekly digest.* The channels page queried
+  Prisma directly instead of going through the chokepoint. Filtered, and it is
+  the clearest argument yet for never letting a client-facing surface compose
+  its own where-clause.
+- *Hovering "Preview as client" minted a preview session.* Next prefetches
+  `Link`s, and the target was a GET route handler with a side effect. Now
+  `prefetch={false}`.
+- *The dev server held a Prisma client from before a schema change.* The
+  singleton survives HMR by design, so `preview` came back undefined until the
+  server restarted. Restart dev after `prisma generate`.
+- *Request-time `Date.now()` in render.* Replaced with `requestNow()` in
+  `src/server/now.ts` — one clock per request, so a row cannot be "due today" in
+  the header and "overdue" in the table.
+- *The invoice refusal threw synchronously* while every sibling returned a
+  promise. Made it async so callers never have to guard it differently.
 
-**In flight**
-- M2: client record tabs (6.4), project view (6.5), Documents/Drive (6.7).
+**Not done, and deliberately so**
 
-**Next**
-- Wire better-auth so `currentWorkspace()` drops its development fallback.
-- M0 leftovers: slide-over, modal, dropdown, command palette, stepper, module
-  toggle row, milestone rail, annotation pin, preview frames, widget charts.
-- M3: the deliverable slide-over and the publish confirmation.
-
-**How to run it**
-
-```
-npm run db:up      # Postgres on 5433
-npm run db:migrate
-npm run db:seed
-npm run dev        # http://localhost:3000/clients
-```
+- **better-auth is not wired.** `currentWorkspace()` resolves the seeded owner
+  and throws in production unless `ALLOW_DEV_SESSION` is set. The client side is
+  fully real — magic link, session cookie, single contact.
+- **Integrations are mock providers.** Every screen models connect, sync age and
+  failure honestly, but nothing calls an external API yet.
+- Drag-to-reorder in the portal builder is a handle without the drag.
+- Annotation pins render and toggle; adding one by clicking the frame is copy,
+  not behaviour.
 
 ## 7. Open questions
 

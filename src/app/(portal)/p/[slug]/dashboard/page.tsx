@@ -1,6 +1,6 @@
 import { portalContext } from "@/server/portal-session";
 import { formatCount, formatSince } from "@/server/format";
-import { BarChart, LineChart, ProgressRail, RankedBars, WidgetCard } from "@/components/ui/chart";
+import { BarChart, LineChart, ProgressRail, WidgetCard } from "@/components/ui/chart";
 
 export const dynamic = "force-dynamic";
 

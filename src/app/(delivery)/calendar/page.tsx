@@ -1,5 +1,6 @@
 import { getCalendar, type CalEvent } from "@/server/cross-client";
 import { currentWorkspace } from "@/server/session";
+import { requestNow } from "@/server/now";
 import { Card } from "@/components/ui/surface";
 import { FilterPill } from "@/components/ui/field";
 import { cn } from "@/lib/utils";
@@ -19,7 +20,7 @@ export default async function CalendarPage() {
   const { agency } = await currentWorkspace();
   const events = await getCalendar(agency.id);
 
-  const today = new Date();
+  const today = requestNow();
   const year = today.getFullYear();
   const month = today.getMonth();
   const first = new Date(year, month, 1);

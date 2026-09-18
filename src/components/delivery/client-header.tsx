@@ -101,9 +101,12 @@ export function ClientHeader({
           </div>
         </div>
 
+        {/* Not prefetched: this route mints a preview session, and Next would
+            otherwise fire it on hover. A side effect must wait for a click. */}
         <Link
           href={`/api/preview?slug=${client.portalSlug}&role=APPROVER`}
           target="_blank"
+          prefetch={false}
           className={buttonVariants({ variant: "secondary" })}
         >
           <Eye className="size-3.5" strokeWidth={1.5} />

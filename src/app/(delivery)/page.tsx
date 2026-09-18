@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getHome } from "@/server/home";
 import { currentWorkspace } from "@/server/session";
 import { formatDate, formatDueCompact, formatSince } from "@/server/format";
+import { nowMs, requestNow } from "@/server/now";
 import { Card, CardHead } from "@/components/ui/surface";
 import { StatusDot } from "@/components/ui/pill";
 import { InternalTag } from "@/components/ui/visibility";
@@ -20,7 +21,7 @@ export const metadata = { title: "Home" };
 export default async function HomePage() {
   const { agency } = await currentWorkspace();
   const home = await getHome(agency.id);
-  const today = new Date();
+  const today = requestNow();
 
   const weekNumber = Math.ceil(
     ((today.getTime() - new Date(today.getFullYear(), 0, 1).getTime()) / 86400000 + 1) / 7,
@@ -139,7 +140,7 @@ export default async function HomePage() {
             />
             <Card className="divide-y divide-canvas">
               {home.openApprovals.map((a) => {
-                const late = a.dueAt && a.dueAt.getTime() < Date.now();
+                const late = a.dueAt && a.dueAt.getTime() < nowMs();
                 return (
                   <Link
                     key={a.id}

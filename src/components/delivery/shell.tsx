@@ -13,6 +13,7 @@ import {
   LayoutGrid,
   LayoutTemplate,
   Menu,
+  MessageSquare,
   Plug,
   Search,
   Settings,
@@ -69,6 +70,7 @@ export function DeliveryShell({ agency, member, counts, children }: ShellProps) 
     { href: "/pipeline", label: "Pipeline", icon: TrendingUp, count: counts.deals },
     { href: "/reports", label: "Reports", icon: FileBarChart },
     { href: "/documents", label: "Documents", icon: Folder, also: ["/documents/approvals", "/documents/contracts"] },
+    { href: "/channels", label: "Channels", icon: MessageSquare },
   ];
 
   const secondary: NavItem[] = [

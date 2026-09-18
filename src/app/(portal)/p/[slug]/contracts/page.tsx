@@ -2,7 +2,6 @@ import { portalContext } from "@/server/portal-session";
 import { formatDate, formatMoney } from "@/server/format";
 import { Card } from "@/components/ui/surface";
 import { StatusPill } from "@/components/ui/pill";
-import { db } from "@/server/db";
 
 export const dynamic = "force-dynamic";
 

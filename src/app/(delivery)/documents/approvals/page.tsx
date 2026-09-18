@@ -3,6 +3,7 @@ import { db } from "@/server/db";
 import { currentWorkspace } from "@/server/session";
 import { approvalRecordLine } from "@/server/approvals";
 import { formatDate, formatDateShort, formatDueCompact } from "@/server/format";
+import { nowMs } from "@/server/now";
 import { Button } from "@/components/ui/button";
 import { Card, CardHead, DataTable, TableHeader, TableRow } from "@/components/ui/surface";
 import { FilterPill, Checkbox, Segmented, Select } from "@/components/ui/field";
@@ -57,7 +58,7 @@ export default async function ApprovalsPage({ searchParams }: PageProps<"/docume
     db.approvalRecord.count({ where: scope }),
   ]);
 
-  const pastSla = open.filter((a) => a.dueAt && a.dueAt.getTime() < Date.now());
+  const pastSla = open.filter((a) => a.dueAt && a.dueAt.getTime() < nowMs());
   const rows = filter === "sla" ? pastSla : open;
   const detail = selected ? open.find((a) => a.id === selected) : null;
 
@@ -96,7 +97,7 @@ export default async function ApprovalsPage({ searchParams }: PageProps<"/docume
                 <span>Channel</span>
               </TableHeader>
               {rows.map((a) => {
-                const late = a.dueAt && a.dueAt.getTime() < Date.now();
+                const late = a.dueAt && a.dueAt.getTime() < nowMs();
                 return (
                   <TableRow
                     key={a.id}

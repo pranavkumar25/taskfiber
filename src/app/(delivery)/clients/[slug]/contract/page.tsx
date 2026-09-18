@@ -3,6 +3,7 @@ import { db } from "@/server/db";
 import { getClientRecord } from "@/server/client-record";
 import { currentWorkspace } from "@/server/session";
 import { formatDate, formatDateTime, formatMoney } from "@/server/format";
+import { nowMs, requestNow } from "@/server/now";
 import { Button } from "@/components/ui/button";
 import { Card, CardHead } from "@/components/ui/surface";
 import { Segmented } from "@/components/ui/field";
@@ -49,7 +50,7 @@ export default async function ContractTab({ params }: PageProps<"/clients/[slug]
   const renewalsSoon = await db.contract.count({
     where: {
       client: { agencyId: agency.id },
-      termEnd: { lte: new Date(Date.now() + 90 * 86400000), gte: new Date() },
+      termEnd: { lte: new Date(nowMs() + 90 * 86400000), gte: requestNow() },
     },
   });
 
