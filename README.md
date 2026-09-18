@@ -69,6 +69,26 @@ Everything derives from `~/Downloads/taskfiber design` — the v2.0 brief, the
 record of what was built, what was decided and why, and what is deliberately not
 finished yet.
 
+## Deploying
+
+The build itself needs nothing — no database, no env vars. At runtime it needs
+two things:
+
+| Variable | Why |
+| --- | --- |
+| `DATABASE_URL` | A Postgres connection string. Use the **pooled** one on a serverless host, since each function opens its own connection. |
+| `TASKFIBER_DEMO_MODE=1` | Runs the agency side unauthenticated, signed in as the seeded owner. Required until better-auth is wired. Never set it on a deployment holding real client data. |
+
+Then point the schema and the dummy content at that database, once:
+
+```bash
+DATABASE_URL='<your pooled connection string>' npm run db:deploy:remote
+DATABASE_URL='<your pooled connection string>' npm run db:seed:remote
+```
+
+The seed is idempotent — it wipes and rebuilds the three agencies, so you can
+re-run it whenever you want the demo back to its starting state.
+
 ## Not finished, on purpose
 
 - **better-auth is not wired.** `currentWorkspace()` resolves the seeded owner

@@ -17,7 +17,9 @@
     "db:reset": "dotenv -e .env -- prisma migrate reset --force",
     "db:studio": "dotenv -e .env -- prisma studio",
     "postinstall": "prisma generate",
-    "test": "dotenv -e .env -- tsx --test tests/*.test.ts"
+    "test": "dotenv -e .env -- tsx --test tests/*.test.ts",
+    "db:seed:remote": "tsx prisma/seed.ts",
+    "db:deploy:remote": "prisma migrate deploy"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",
