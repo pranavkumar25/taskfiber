@@ -1,0 +1,1341 @@
+// TaskFiber — the data model.
+//
+// Two interfaces, ONE data model. The delivery side and the client portal are
+// views of the same rows, which is only safe because of the invariant below.
+//
+// ── The one rule ──────────────────────────────────────────────────────────
+// Nothing reaches the client automatically. Every Project, Milestone, Task,
+// Deliverable, Update and Comment carries `visibility`, it is REQUIRED, and it
+// defaults to INTERNAL. Publishing is a distinct mutation that writes an
+// ActivityLog row. Portal reads never compose their own where-clause — they go
+// through the single chokepoint in `src/server/visibility.ts`.
+//
+// ApprovalRecord is append-only: the Prisma wrapper exposes no update or
+// delete path for it, and a test asserts both are rejected.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+// Prisma 7 keeps connection URLs out of the schema; they live in
+// `prisma.config.ts` for the CLI and reach the client through a driver adapter.
+datasource db {
+  provider = "postgresql"
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Enums
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// The six kinds of agency. Drives which portal template is offered, which
+/// modules default on, and what the work unit is called.
+enum Vertical {
+  MARKETING
+  DESIGN
+  PRODUCT
+  TECH
+  INFLUENCER
+  TALENT
+}
+
+/// THE invariant. Two states, never three — "published" is the transition into
+/// CLIENT_VISIBLE, stamped with who did it and when.
+enum Visibility {
+  INTERNAL
+  CLIENT_VISIBLE
+}
+
+enum TeamRole {
+  OWNER
+  ADMIN
+  MEMBER
+  LIMITED
+}
+
+/// Only APPROVER can approve, in any channel. BILLING sees invoices but gets no
+/// Approve action. COLLABORATOR hits the padlock state on Invoices.
+enum ContactRole {
+  APPROVER
+  COLLABORATOR
+  VIEWER
+  BILLING
+}
+
+enum ClientStage {
+  PROSPECT
+  ONBOARDING
+  ACTIVE
+  AT_RISK
+  RENEWAL
+  OFFBOARDED
+}
+
+enum ProjectType {
+  RETAINER
+  PROJECT
+  CAMPAIGN
+  SPRINT
+  BOOKING
+  ROADMAP
+}
+
+enum ProjectStatus {
+  ON_TRACK
+  AT_RISK
+  BLOCKED
+  DONE
+}
+
+enum MilestoneState {
+  DONE
+  DUE
+  AT_RISK
+  MISSED
+  UPCOMING
+}
+
+enum TaskStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  IN_REVIEW
+  WAITING
+  AT_RISK
+  DONE
+}
+
+enum DeliverableStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  DELIVERED
+}
+
+/// Selects how the portal renders a deliverable. Previews are real, never grey
+/// boxes, so the kind has to be known.
+enum PreviewKind {
+  CREATIVE
+  FIGMA
+  REEL
+  DOCUMENT
+  WEB
+}
+
+enum ApprovalState {
+  WAITING
+  APPROVED
+  CHANGES_REQUESTED
+}
+
+enum ApprovalDecision {
+  APPROVED
+  CHANGES_REQUESTED
+}
+
+/// Part of the approval record's grammar: "…, via portal." VERBAL is recorded
+/// explicitly and labelled as such, never disguised as a client action.
+enum Channel {
+  PORTAL
+  EMAIL
+  WHATSAPP
+  VERBAL
+}
+
+enum ContractKind {
+  RETAINER
+  MSA
+  SOW
+  PROJECT
+}
+
+enum ContractStatus {
+  DRAFT
+  SENT
+  SIGNED
+  ACTIVE
+  EXPIRING
+  EXPIRED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  OPEN
+  OVERDUE
+  PAID
+}
+
+enum PaymentRail {
+  RAZORPAY_UPI
+  RAZORPAY_CARD
+  STRIPE_CARD
+  BANK_TRANSFER
+}
+
+enum DocumentCategory {
+  CONTRACT
+  BRIEF
+  REPORT
+  CREATIVE
+  INVOICE
+}
+
+/// The thirteen portal modules. Overview is locked on and cannot be switched
+/// off; Roster exists only for influencer and talent.
+enum ModuleKey {
+  OVERVIEW
+  TIMELINE
+  DELIVERABLES
+  DASHBOARDS
+  DOCUMENTS
+  CONTRACTS
+  INVOICES
+  UPDATES
+  REQUESTS
+  TEAM
+  MEETINGS
+  ASSETS
+  ROSTER
+}
+
+enum IntegrationCategory {
+  STORAGE
+  ESIGN
+  ACCOUNTING
+  PAYMENTS
+  CRM
+  ANALYTICS
+  DESIGN
+  DEV
+  SOCIAL
+  MESSAGING
+  MEETINGS
+  REPORTING
+}
+
+enum IntegrationStatus {
+  CONNECTED
+  NOT_CONNECTED
+  FAILING
+  EMBED
+}
+
+/// Open question 1 in the brief. Held as a setting so the answer stays cheap.
+enum SyncMode {
+  TWO_WAY
+  PUBLISH_ON_DEMAND
+}
+
+enum DealStage {
+  PROPOSAL
+  NEGOTIATION
+  VERBAL_YES
+  WON
+  LOST
+}
+
+enum RosterStatus {
+  BRIEFED
+  CONTRACTED
+  CONTENT_IN_REVIEW
+  POSTED
+}
+
+enum ReportState {
+  DRAFT
+  PUBLISHED
+}
+
+enum ActivitySource {
+  DRIVE
+  PORTAL
+  EMAIL
+  WHATSAPP
+  SYSTEM
+}
+
+enum RequestStatus {
+  NEW
+  IN_PROGRESS
+  DONE
+}
+
+enum StepState {
+  NOT_STARTED
+  IN_PROGRESS
+  DONE
+}
+
+enum IntakeFieldType {
+  TEXT
+  CHOICE
+  FILE
+  CONTACT
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Auth (better-auth owns these four shapes)
+// ═══════════════════════════════════════════════════════════════════════════
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+  memberships   Member[]
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("verification")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// The agency workspace
+// ═══════════════════════════════════════════════════════════════════════════
+
+model Agency {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  vertical  Vertical
+  city      String?
+  teamSize  String?
+
+  /// The one themed property. Everything else stays TaskFiber's.
+  accentHex     String  @default("#1E40AF")
+  logoAsset     String?
+  portalDomain  String  @unique
+  customDomain  String?
+  dnsVerified   Boolean @default(false)
+  emailSender   String?
+  poweredBy     Boolean @default(true)
+  plan          String  @default("studio")
+  seats         Int     @default(5)
+
+  /// Drive is the storage backbone, not an integration in a list.
+  driveRootPath   String?
+  clientsRootPath String?
+  syncMode        SyncMode @default(PUBLISH_ON_DEMAND)
+
+  /// Approval SLA defaults, set once per workspace.
+  defaultApprovalDays Int    @default(3)
+  reminderTone        String @default("plain")
+
+  lastExportAt    DateTime?
+  lastExportBytes BigInt?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members      Member[]
+  clients      Client[]
+  templates    PortalTemplate[]
+  integrations Integration[]
+  deals        Deal[]
+  activity     ActivityLog[]
+
+  @@index([slug])
+}
+
+/// A person's membership of an agency. `canPublish` is deliberately independent
+/// of `role` — the design casts a Member who cannot publish, and a freelancer
+/// scoped to a single project.
+model Member {
+  id       String   @id @default(cuid())
+  agencyId String
+  agency   Agency   @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  userId   String?
+  user     User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  name       String
+  email      String
+  role       TeamRole @default(MEMBER)
+  discipline String?
+  isFreelance Boolean @default(false)
+
+  canPublish     Boolean @default(true)
+  canSeeFinance  Boolean @default(true)
+  /// Empty means every client in the agency.
+  scopedClientIds String[] @default([])
+  scopedProjectIds String[] @default([])
+
+  weeklyCapacityHours Int      @default(40)
+  lastActiveAt        DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ledClients        Client[]        @relation("AccountLead")
+  ownedProjects     Project[]
+  ownedTasks        Task[]
+  ownedDeliverables Deliverable[]
+  authoredVersions  DeliverableVersion[]
+  authoredUpdates   Update[]
+  authoredComments  Comment[]
+  activity          ActivityLog[]
+
+  @@unique([agencyId, email])
+  @@index([agencyId])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Clients and their people
+// ═══════════════════════════════════════════════════════════════════════════
+
+model Client {
+  id       String @id @default(cuid())
+  agencyId String
+  agency   Agency @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+
+  name       String
+  slug       String
+  brandColor String      @default("#525252")
+  vertical   Vertical
+  stage      ClientStage @default(ONBOARDING)
+
+  accountLeadId String?
+  accountLead   Member? @relation("AccountLead", fields: [accountLeadId], references: [id], onDelete: SetNull)
+
+  driveFolderPath String?
+  currency        String  @default("INR")
+  gstin           String?
+  taxRatePercent  Int     @default(18)
+
+  paymentRemindersEnabled Boolean @default(false)
+
+  /// Free-text reasons, shown inline on the client row rather than rolled into
+  /// a score. Show the inputs, never a black box.
+  healthFlags String[] @default([])
+
+  crmDealId          String?
+  lastPortalActivity DateTime?
+  portalSentAt       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  contacts    Contact[]
+  projects    Project[]
+  portal      PortalConfig?
+  contracts   Contract[]
+  invoices    Invoice[]
+  documents   Document[]
+  driveFiles  DriveFile[]
+  roster      RosterMember[]
+  reports     Report[]
+  requests    ClientRequest[]
+  meetings    Meeting[]
+  assets      Asset[]
+  onboarding  OnboardingChecklist?
+  activity    ActivityLog[]
+  deliverables Deliverable[]
+
+  @@unique([agencyId, slug])
+  @@index([agencyId, stage])
+}
+
+/// A client-side person. Never has a password; reaches the portal by a signed,
+/// expiring, single-contact magic link.
+model Contact {
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  name     String
+  jobTitle String?
+  email    String
+  phone    String?
+  role     ContactRole @default(COLLABORATOR)
+
+  notifyChannel  String  @default("email")
+  notifyCadence  String  @default("weekly")
+
+  lastActiveAt DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  magicLinks     MagicLink[]
+  sessions       PortalSession[]
+  approvals      ApprovalRequest[]
+  records        ApprovalRecord[]
+  comments       Comment[]
+  requests       ClientRequest[]
+  uploads        DriveFile[]
+
+  @@unique([clientId, email])
+  @@index([clientId, role])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Portal configuration
+// ═══════════════════════════════════════════════════════════════════════════
+
+model PortalTemplate {
+  id       String  @id @default(cuid())
+  agencyId String?
+  agency   Agency? @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+
+  name        String
+  description String?
+  vertical    Vertical
+  /// Null agency = one of the six shipped templates.
+  isShipped   Boolean  @default(false)
+
+  workUnit      String
+  timelineLabel String
+
+  savedFromClientId String?
+  expectedTools     String[] @default([])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  modules TemplateModule[]
+  portals PortalConfig[]
+
+  @@index([agencyId])
+}
+
+model TemplateModule {
+  id         String         @id @default(cuid())
+  templateId String
+  template   PortalTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  key      ModuleKey
+  label    String
+  enabled  Boolean       @default(true)
+  order    Int
+  /// Empty means every role.
+  roles    ContactRole[] @default([])
+
+  @@unique([templateId, key])
+}
+
+model PortalConfig {
+  id       String @id @default(cuid())
+  clientId String @unique
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  templateId String?
+  template   PortalTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  slug String @unique
+
+  /// Branding overrides. Null falls back to the agency's.
+  accentHex    String?
+  logoAsset    String?
+  emailSender  String?
+  whiteLabel   Boolean @default(false)
+
+  /// Portal home renders the letter layout when the lead has written an
+  /// update, and the stacked blocks otherwise. This flag allows an agency to
+  /// pin one.
+  homeLayout String @default("auto")
+
+  /// Influencer only. Default visible, as drawn, but an agency can hide creator
+  /// fees from the brand — it drives the home tile, Contracts and the invoice
+  /// footnote together.
+  showCreatorFees Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  modules PortalModule[]
+  widgets DashboardWidget[]
+}
+
+model PortalModule {
+  id       String       @id @default(cuid())
+  portalId String
+  portal   PortalConfig @relation(fields: [portalId], references: [id], onDelete: Cascade)
+
+  key     ModuleKey
+  label   String
+  enabled Boolean       @default(true)
+  order   Int
+  roles   ContactRole[] @default([])
+
+  @@unique([portalId, key])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// The work
+// ═══════════════════════════════════════════════════════════════════════════
+
+model Project {
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  name      String
+  type      ProjectType   @default(PROJECT)
+  status    ProjectStatus @default(ON_TRACK)
+  ownerId   String?
+  owner     Member?       @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  startDate DateTime?
+  endDate   DateTime?
+
+  /// Required, and internal until someone publishes it.
+  visibility Visibility @default(INTERNAL)
+
+  /// Optional per project, per the brief. Not the centre of the product.
+  revisionRoundsAllowed Int?
+  revisionRoundsUsed    Int  @default(0)
+
+  driveFolderPath String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  phases       Phase[]
+  milestones   Milestone[]
+  tasks        Task[]
+  deliverables Deliverable[]
+  updates      Update[]
+  comments     Comment[]
+  documents    Document[]
+
+  @@index([clientId, status])
+}
+
+/// A stretch of the timeline — Flight 2 · Consideration, Discovery, Sprint 14.
+model Phase {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  name      String
+  weight    Int       @default(1)
+  startDate DateTime?
+  endDate   DateTime?
+  status    MilestoneState @default(UPCOMING)
+  order     Int
+
+  @@index([projectId])
+}
+
+model Milestone {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  name  String
+  date  DateTime
+  state MilestoneState @default(UPCOMING)
+
+  /// An internal milestone draws as a dashed square and is never shown in the
+  /// portal — the project card counts them: "4 of 5 milestones published".
+  visibility Visibility @default(INTERNAL)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tasks    Task[]
+  comments Comment[]
+
+  @@index([projectId, date])
+}
+
+model Task {
+  id          String     @id @default(cuid())
+  projectId   String
+  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  milestoneId String?
+  milestone   Milestone? @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+
+  name           String
+  status         TaskStatus @default(NOT_STARTED)
+  ownerId        String?
+  owner          Member?    @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  dueDate        DateTime?
+  estimateHours  Int?
+  completed      Boolean    @default(false)
+
+  /// Task churn never crosses to a client by default.
+  visibility Visibility @default(INTERNAL)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId, milestoneId])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Files, deliverables and approvals
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// A file as it exists in Drive. Mapped, never moved or renamed.
+model DriveFile {
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  path      String
+  name      String
+  mimeType  String?
+  sizeBytes BigInt?
+  modifiedAt DateTime?
+  syncedAt   DateTime?
+
+  /// Set when a client sent it through their portal link, with no login.
+  uploadedByContactId String?
+  uploadedByContact   Contact? @relation(fields: [uploadedByContactId], references: [id], onDelete: SetNull)
+
+  versionId String?
+  version   DeliverableVersion? @relation(fields: [versionId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([clientId, path])
+}
+
+/// The bridge between a folder of files and something a client understands.
+model Deliverable {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  name        String
+  type        String
+  previewKind PreviewKind       @default(DOCUMENT)
+  status      DeliverableStatus @default(DRAFT)
+  assetSummary String?
+
+  ownerId String?
+  owner   Member? @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+
+  /// New deliverables start internal, like everything else.
+  visibility Visibility @default(INTERNAL)
+
+  publishedAt      DateTime?
+  publishedByName  String?
+  publishedVersion String?
+
+  driveFolderPath String?
+  figmaFileKey    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  versions DeliverableVersion[]
+  comments Comment[]
+
+  @@index([clientId, status])
+  @@index([projectId])
+}
+
+model DeliverableVersion {
+  id            String      @id @default(cuid())
+  deliverableId String
+  deliverable   Deliverable @relation(fields: [deliverableId], references: [id], onDelete: Cascade)
+
+  label     String
+  note      String?
+  authorId  String?
+  author    Member? @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  isCurrent Boolean @default(false)
+
+  publishedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  files    DriveFile[]
+  requests ApprovalRequest[]
+  records  ApprovalRecord[]
+  comments Comment[]
+
+  @@unique([deliverableId, label])
+}
+
+model ApprovalRequest {
+  id        String             @id @default(cuid())
+  versionId String
+  version   DeliverableVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+
+  approverId String
+  approver   Contact @relation(fields: [approverId], references: [id], onDelete: Cascade)
+
+  state       ApprovalState @default(WAITING)
+  requestedAt DateTime      @default(now())
+  dueAt       DateTime?
+  decidedAt   DateTime?
+
+  /// Reminders stop the moment a decision arrives from any channel.
+  reminderCount   Int       @default(0)
+  lastRemindedAt  DateTime?
+  escalatedAt     DateTime?
+  escalatedToName String?
+
+  @@index([approverId, state])
+  @@index([state, dueAt])
+}
+
+/// APPEND-ONLY. One fixed grammar, reused verbatim across every channel:
+///   "Approved v3 by Karan Mehta, 17 Sep 2026, 14:06, via portal."
+/// The Prisma wrapper exposes no update or delete for this model.
+model ApprovalRecord {
+  id        String             @id @default(cuid())
+  versionId String
+  version   DeliverableVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+
+  approverId   String
+  approver     Contact          @relation(fields: [approverId], references: [id], onDelete: Cascade)
+  decision     ApprovalDecision
+  channel      Channel          @default(PORTAL)
+  comment      String?
+  /// Set when an agency recorded a decision given out of band. Labelled as such
+  /// on the record, never disguised as a client action.
+  recordedByName String?
+
+  decidedAt DateTime @default(now())
+
+  @@index([versionId, decidedAt])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Conversation
+// ═══════════════════════════════════════════════════════════════════════════
+
+model Update {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  title  String
+  body   String
+  authorId String?
+  author   Member? @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  visibility  Visibility    @default(INTERNAL)
+  visibleTo   ContactRole[] @default([])
+  publishedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  comments Comment[]
+
+  @@index([projectId, createdAt])
+}
+
+/// Polymorphic: a comment hangs off whichever object it is about.
+model Comment {
+  id String @id @default(cuid())
+
+  projectId     String?
+  project       Project?            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  milestoneId   String?
+  milestone     Milestone?          @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+  deliverableId String?
+  deliverable   Deliverable?        @relation(fields: [deliverableId], references: [id], onDelete: Cascade)
+  versionId     String?
+  version       DeliverableVersion? @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  updateId      String?
+  update        Update?             @relation(fields: [updateId], references: [id], onDelete: Cascade)
+
+  parentId String?
+  parent   Comment?  @relation("Thread", fields: [parentId], references: [id], onDelete: Cascade)
+  replies  Comment[] @relation("Thread")
+
+  body String
+
+  authorMemberId  String?
+  authorMember    Member?  @relation(fields: [authorMemberId], references: [id], onDelete: SetNull)
+  authorContactId String?
+  authorContact   Contact? @relation(fields: [authorContactId], references: [id], onDelete: SetNull)
+
+  visibility Visibility @default(INTERNAL)
+
+  /// An annotation pinned to a coordinate, page or timestamp on a preview.
+  pinX        Float?
+  pinY        Float?
+  pinPage     Int?
+  pinTimecode Int?
+
+  mentions String[] @default([])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([deliverableId])
+  @@index([projectId])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// The contract and the accounts
+// ═══════════════════════════════════════════════════════════════════════════
+
+model Contract {
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  title  String
+  kind   ContractKind   @default(RETAINER)
+  status ContractStatus @default(DRAFT)
+
+  parties       String[] @default([])
+  annualValue   Decimal? @db.Decimal(14, 2)
+  monthlyValue  Decimal? @db.Decimal(14, 2)
+  currency      String   @default("INR")
+
+  termStart    DateTime?
+  termEnd      DateTime?
+  renewalDate  DateTime?
+  /// Alerts fire at 90, 60 and 30 days; each firing is recorded here.
+  alertsFired  DateTime[] @default([])
+
+  signedAt       DateTime?
+  esignProvider  String?
+  esignEnvelopeId String?
+  driveFilePath  String?
+
+  /// A SOW governs exactly one project. That is where scope disputes get
+  /// settled — not in a ledger.
+  governsProjectId String?
+
+  visibility Visibility @default(INTERNAL)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientId, status])
+  @@index([renewalDate])
+}
+
+/// A mirror of the accounting ledger. Never a second ledger — the UI says so.
+model Invoice {
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  number   String
+  amount   Decimal       @db.Decimal(14, 2)
+  currency String        @default("INR")
+  status   InvoiceStatus @default(OPEN)
+
+  issuedAt DateTime
+  dueAt    DateTime
+  paidAt   DateTime?
+
+  paymentRail PaymentRail?
+  paymentLink String?
+  viewedAt    DateTime?
+
+  /// The id in Zoho Books / QuickBooks / Xero. That system is the source of
+  /// truth; this row is a read.
+  externalId     String?
+  externalSource String?
+  syncedAt       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([clientId, number])
+  @@index([clientId, status])
+}
+
+model Document {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  name     String
+  category DocumentCategory
+  drivePath String?
+  sizeBytes BigInt?
+
+  visibility Visibility @default(INTERNAL)
+
+  createdAt  DateTime @default(now())
+  modifiedAt DateTime @default(now())
+
+  @@index([clientId, category])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Pipeline, roster, dashboards, reports
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Read from the CRM. We do not own the pipeline; we own the handoff.
+model Deal {
+  id       String @id @default(cuid())
+  agencyId String
+  agency   Agency @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+
+  externalId String?
+  name       String
+  company    String
+  stage      DealStage @default(PROPOSAL)
+  value      Decimal?  @db.Decimal(14, 2)
+  currency   String    @default("INR")
+  cadence    String?
+  closeDate  DateTime?
+  wonAt      DateTime?
+  ownerName  String?
+  note       String?
+  /// [{ name, proposedRole }] — carried across on the handoff so nothing is
+  /// re-typed.
+  contacts   Json?
+  syncedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([agencyId, stage])
+}
+
+model RosterMember {
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  handle     String
+  realName   String
+  avatarColor String       @default("#525252")
+  channels   String[]     @default([])
+  followers  Int?
+  status     RosterStatus @default(BRIEFED)
+  postingDate DateTime?
+  deliverableSummary String?
+  feeAmount  Decimal?     @db.Decimal(14, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  posts RosterPost[]
+
+  @@index([clientId])
+}
+
+model RosterPost {
+  id       String       @id @default(cuid())
+  memberId String
+  member   RosterMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  kind       String
+  postedAt   DateTime?
+  reach      Int?
+  engagement Float?
+  likes      Int?
+  saves      Int?
+  source     String?
+  syncedAt   DateTime?
+
+  @@index([memberId])
+}
+
+model DashboardWidget {
+  id       String       @id @default(cuid())
+  portalId String
+  portal   PortalConfig @relation(fields: [portalId], references: [id], onDelete: Cascade)
+
+  title  String
+  kind   String
+  source String?
+  /// Widget-specific shape: series, rows, value, target, embed url.
+  config Json
+  span   Int     @default(1)
+  order  Int
+  syncedAt DateTime?
+
+  @@index([portalId])
+}
+
+model Report {
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  title  String
+  period String
+  state  ReportState @default(DRAFT)
+
+  /// What the draft was assembled from. Every section carries its provenance.
+  sourceActivityCount Int @default(0)
+  sourceNames         String[] @default([])
+
+  permanentSlug String? @unique
+  publishedAt   DateTime?
+
+  scheduleEnabled   Boolean @default(false)
+  scheduleCadence   String?
+  scheduleDraftFirst Boolean @default(true)
+  recipientContactIds String[] @default([])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sections ReportSection[]
+
+  @@unique([clientId, period])
+}
+
+model ReportSection {
+  id       String @id @default(cuid())
+  reportId String
+  report   Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  heading    String
+  body       String?
+  /// The caption on the right of the heading: "From 3 published deliverables".
+  provenance String?
+  metrics    Json?
+  order      Int
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Integrations, onboarding, requests, meetings, assets
+// ═══════════════════════════════════════════════════════════════════════════
+
+model Integration {
+  id       String @id @default(cuid())
+  agencyId String
+  agency   Agency @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+
+  provider String
+  category IntegrationCategory
+  status   IntegrationStatus   @default(NOT_CONNECTED)
+  account  String?
+  purpose  String?
+
+  syncedAt    DateTime?
+  errorReason String?
+  /// "14 client records may be stale" — a failure states what it affects.
+  blastRadius String?
+
+  config Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([agencyId, provider])
+  @@index([agencyId, category])
+}
+
+model OnboardingChecklist {
+  id       String @id @default(cuid())
+  clientId String @unique
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  templateName String?
+  sourceDealId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  steps OnboardingStep[]
+}
+
+model OnboardingStep {
+  id          String              @id @default(cuid())
+  checklistId String
+  checklist   OnboardingChecklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+
+  order       Int
+  name        String
+  detail      String?
+  ownerName   String?
+  state       StepState @default(NOT_STARTED)
+  completedAt DateTime?
+  scheduledAt DateTime?
+  actionLabel String?
+  actionHref  String?
+  automatic   Boolean   @default(false)
+}
+
+model IntakeForm {
+  id   String @id @default(cuid())
+  name String
+  token String @unique
+  clientId String?
+  sentToContactId String?
+  sentAt    DateTime?
+  answeredAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  fields IntakeField[]
+}
+
+model IntakeField {
+  id     String @id @default(cuid())
+  formId String
+  form   IntakeForm @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  label   String
+  type    IntakeFieldType @default(TEXT)
+  options String[]        @default([])
+  /// Where the answer lands: a Drive folder, the Approver role, a client field.
+  mapsTo  String?
+  order   Int
+  answer  String?
+}
+
+model ClientRequest {
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  kind      String
+  details   String
+  neededBy  DateTime?
+  status    RequestStatus @default(NEW)
+
+  raisedById String?
+  raisedBy   Contact? @relation(fields: [raisedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientId, status])
+}
+
+model Meeting {
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  title       String
+  heldAt      DateTime
+  notes       String?
+  actionItems String[] @default([])
+  recordingUrl String?
+  source      String?
+
+  visibility Visibility @default(INTERNAL)
+
+  createdAt DateTime @default(now())
+
+  @@index([clientId, heldAt])
+}
+
+model Asset {
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  name     String
+  caption  String?
+  category String?
+  /// Rendered specimen data — swatches, a lockup, a type sample.
+  preview  Json?
+  drivePath String?
+  syncedAt DateTime?
+
+  visibility Visibility @default(CLIENT_VISIBLE)
+
+  @@index([clientId])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Access and audit
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Signed, expiring, scoped to exactly one contact. There is no password path.
+model MagicLink {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  contactId String
+  contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([contactId])
+}
+
+model PortalSession {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  contactId String
+  contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([contactId])
+}
+
+/// Every state and visibility change, with its actor and its source. Visibility
+/// changes matter most here.
+model ActivityLog {
+  id       String  @id @default(cuid())
+  agencyId String
+  agency   Agency  @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  clientId String?
+  client   Client? @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  actorMemberId String?
+  actorMember   Member? @relation(fields: [actorMemberId], references: [id], onDelete: SetNull)
+  actorName     String
+  actorIsClient Boolean @default(false)
+
+  verb       String
+  objectType String
+  objectId   String?
+  objectName String?
+  detail     String?
+
+  source     ActivitySource @default(SYSTEM)
+  visibility Visibility?
+
+  createdAt DateTime @default(now())
+
+  @@index([clientId, createdAt])
+  @@index([agencyId, createdAt])
+}

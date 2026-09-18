@@ -1,0 +1,26 @@
+# A local Postgres for development, so nothing external is needed to run the
+# product. Supabase is the deploy target; the connection string is the only
+# difference.
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: taskfiber-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: taskfiber
+      POSTGRES_PASSWORD: taskfiber
+      POSTGRES_DB: taskfiber
+    ports:
+      # 5432 is commonly taken by another local project, so TaskFiber sits one
+      # port along. Inside the container Postgres still listens on 5432.
+      - "5433:5432"
+    volumes:
+      - taskfiber-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U taskfiber -d taskfiber"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  taskfiber-db:

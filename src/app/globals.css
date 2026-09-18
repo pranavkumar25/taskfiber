@@ -1,0 +1,245 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* ---------------------------------------------------------------------------
+   TaskFiber design tokens.
+
+   Extracted from `Foundations.dc.html`, not invented. Three rules govern them:
+
+   1. Colour is reserved for state. A healthy client list looks almost
+      monochrome.
+   2. Borders over shadows. Resting surfaces carry a 1px border; only floating
+      layers cast.
+   3. Agency theming is exactly one variable, `--accent`. Neutrals, type and
+      spacing never change per brand, "so every portal feels like a well-made
+      product the agency built".
+
+   Where the spec text and the rendered canvases disagreed, the canvases win:
+   the card radius is 10px (spec said 8), the neutral fill is #171717 (a swatch
+   said #000000), and cards do carry the 0.04 shadow despite the "no shadow"
+   wording.
+--------------------------------------------------------------------------- */
+
+@theme {
+  /* --- Neutrals ------------------------------------------------------ */
+  --color-surface: #ffffff; /* cards; separated from canvas by a border, never a fill */
+  --color-canvas: #f5f5f5; /* page ground, table headers, hover, chips, skeletons */
+  --color-ash: #e5e5e5; /* hairlines, default borders, region dividers */
+  --color-smoke: #d4d4d4; /* strong borders: inputs, client-visible rows */
+  --color-charcoal: #171717; /* body text, headings, dark filled buttons, toasts */
+  --color-steel: #525252; /* secondary text — the most-used colour in the system */
+  --color-fog: #737373; /* placeholders, disabled, tertiary meta, dashed internal border */
+
+  /* --- Product blues. Never appear inside a client portal. ------------ */
+  --color-electric: #2563eb; /* links, active nav/tab rail, focus ring, selected row */
+  --color-sapphire: #1e40af; /* primary action fill, delivery side */
+  --color-sapphire-hover: #1e3a8a;
+  --color-ink: #1d4ed8; /* blue 700 — text on a blue tint */
+
+  /* --- Semantic status. Each has a base, an 8% tint and a 700 text. --- */
+  --color-success: #16a34a;
+  --color-success-fg: #15803d;
+  --color-success-tint: rgb(22 163 74 / 0.08);
+  --color-warning: #ea580c;
+  --color-warning-fg: #c2410c;
+  --color-warning-tint: rgb(234 88 12 / 0.08);
+  --color-danger: #dc2626;
+  --color-danger-fg: #b91c1c;
+  --color-danger-tint: rgb(220 38 38 / 0.08);
+  --color-info: #2563eb;
+  --color-info-fg: #1d4ed8;
+  --color-info-tint: rgb(37 99 235 / 0.08);
+
+  /* The agency accent. Overridden per workspace and per portal. */
+  --color-accent: var(--accent);
+
+  /* --- Type ---------------------------------------------------------- */
+  --font-sans: "Pretendard", system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+
+  /* Two scales. The delivery side is dense and instrument-like; the client
+     portal is spacious and typeset like a document. */
+  --text-label: 11px; /* uppercase, +0.04em */
+  --text-label--line-height: 1.4;
+  --text-meta: 12px;
+  --text-meta--line-height: 1.45;
+  --text-body: 13px; /* delivery base */
+  --text-body--line-height: 1.5;
+  --text-item: 14px; /* row and item titles */
+  --text-item--line-height: 1.45;
+  --text-read: 15px; /* portal secondary body */
+  --text-read--line-height: 1.55;
+  --text-prose: 16px; /* portal base */
+  --text-prose--line-height: 1.55;
+  --text-h3: 16px;
+  --text-h3--line-height: 1.4;
+  --text-h2: 20px;
+  --text-h2--line-height: 1.3;
+  --text-h2--letter-spacing: -0.02em;
+  --text-h1: 24px; /* delivery page title */
+  --text-h1--line-height: 1.25;
+  --text-h1--letter-spacing: -0.02em;
+  --text-display: 28px; /* portal page title */
+  --text-display--line-height: 1.2;
+  --text-display--letter-spacing: -0.02em;
+
+  /* --- Radii --------------------------------------------------------- */
+  --radius-chip: 4px; /* tags, kbd, version chips */
+  --radius-control: 6px; /* buttons, inputs, segmented, banners */
+  --radius-card: 10px; /* cards, tables, widgets, panels */
+  --radius-overlay: 12px; /* modal, popover, slide-over, command palette */
+
+  /* --- Elevation ----------------------------------------------------- */
+  --shadow-card: 0 1px 2px rgb(23 23 23 / 0.04);
+  --shadow-button: 0 1px 2px rgb(23 23 23 / 0.06);
+  --shadow-lift: 0 4px 12px rgb(23 23 23 / 0.06);
+  --shadow-overlay:
+    0 8px 24px rgb(23 23 23 / 0.08), 0 1px 2px rgb(23 23 23 / 0.06);
+  --shadow-primary:
+    inset 0 1px 0 rgb(255 255 255 / 0.16), 0 1px 2px rgb(30 64 175 / 0.35);
+  --shadow-primary-accent:
+    inset 0 1px 0 rgb(255 255 255 / 0.16), 0 1px 2px rgb(23 23 23 / 0.18);
+  --shadow-focus: 0 0 0 3px rgb(37 99 235 / 0.15);
+
+  /* --- Motion. Two values, and nothing bounces or loops. -------------- */
+  --animate-enter: enter 160ms ease-out; /* anything appearing in place */
+  --animate-slide-over: slide-over 180ms ease-out; /* the 480px drawer */
+
+  @keyframes enter {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slide-over {
+    from {
+      transform: translateX(24px);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+}
+
+/* Self-hosted UI typeface. Geist Mono is loaded by `next/font` in the root
+   layout; it carries every date, id, amount, version and count, and that split
+   is load-bearing — mono is how the product says "this is data". */
+@font-face {
+  font-family: "Pretendard";
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url("/fonts/Pretendard-Regular.otf") format("opentype");
+}
+@font-face {
+  font-family: "Pretendard";
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  src: url("/fonts/Pretendard-Medium.otf") format("opentype");
+}
+@font-face {
+  font-family: "Pretendard";
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+  src: url("/fonts/Pretendard-SemiBold.otf") format("opentype");
+}
+@font-face {
+  font-family: "Pretendard";
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url("/fonts/Pretendard-Bold.otf") format("opentype");
+}
+
+:root {
+  /* The default accent. Every workspace and portal root overrides this with
+     the agency's own, and the builder warns when a chosen accent fails 4.5:1
+     against white for button text. */
+  --accent: #1e40af;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background: var(--color-surface);
+    color: var(--color-charcoal);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: 1.5;
+  }
+
+  /* Every interactive element shares one transition. */
+  button,
+  a,
+  input,
+  select,
+  textarea,
+  [role="button"],
+  [role="tab"] {
+    transition:
+      background-color 120ms ease-out,
+      border-color 120ms ease-out,
+      box-shadow 120ms ease-out,
+      color 120ms ease-out;
+  }
+
+  ::selection {
+    background: rgb(37 99 235 / 0.15);
+  }
+}
+
+@layer utilities {
+  /* Uppercase micro-label, used for section heads, column heads and role tags. */
+  .label-caps {
+    font-size: var(--text-label);
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-steel);
+  }
+
+  /* Currency and any column of figures that should line up. */
+  .tabular {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Hides scrollbars on the portal's horizontal phone nav. */
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+}
+
+/* The product respects a reduced-motion preference: the 160ms entrances and
+   the drawer slide simply do not play. Loading skeletons never animated in the
+   first place — they match row geometry with no shimmer. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
