@@ -45,10 +45,36 @@ const connectionString = process.env.DATABASE_URL;
 if (!connectionString) throw new Error("DATABASE_URL is not set — see .env.example");
 const db = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
 
-/** Dates are absolute because the design specifies them. "Today" is 18 Sep 2026. */
+/* ---------------------------------------------------------------------------
+   Dates.
+
+   The design specifies exact dates, and the whole casting hangs off the
+   relationships between them: v3 is due tomorrow, the Diwali flight is fifteen
+   days out, Halden's approval is four days overdue, Monsoon's contract ends in
+   twelve.
+
+   Writing them absolutely would mean a demo seeded today looks right and one
+   seeded in six weeks looks broken — every approval overdue, the calendar
+   showing a month nobody is in. So the design's frame is anchored to the day it
+   was drawn and shifted to whenever the seed actually runs. Every interval is
+   preserved exactly; only the frame moves.
+
+   Set SEED_TODAY=2026-09-18 to reproduce the design's literal dates.
+--------------------------------------------------------------------------- */
+const DESIGNED_TODAY = new Date(2026, 8, 18);
+
+const seedToday = process.env.SEED_TODAY
+  ? new Date(process.env.SEED_TODAY)
+  : new Date();
+seedToday.setHours(0, 0, 0, 0);
+
+const SHIFT_MS = seedToday.getTime() - DESIGNED_TODAY.getTime();
+
+const shift = (date: Date) => new Date(date.getTime() + SHIFT_MS);
+
 const d = (month: number, day: number, hh = 9, mm = 0) =>
-  new Date(2026, month - 1, day, hh, mm);
-const d2027 = (month: number, day: number) => new Date(2027, month - 1, day);
+  shift(new Date(2026, month - 1, day, hh, mm));
+const d2027 = (month: number, day: number) => shift(new Date(2027, month - 1, day));
 
 const V = Visibility;
 
@@ -1082,7 +1108,7 @@ async function seedKiroFoods(
         parties: ["Fieldnote Media Pvt Ltd", "Kiro Foods Pvt Ltd"],
         annualValue: 5040000, monthlyValue: 420000, currency: "INR",
         termStart: d(4, 1), termEnd: d2027(3, 31), renewalDate: d2027(3, 31),
-        signedAt: new Date(2026, 2, 28, 11, 4),
+        signedAt: shift(new Date(2026, 2, 28, 11, 4)),
         esignProvider: "DocuSign", esignEnvelopeId: "4F2A-91C7-55D0-B3E8",
         driveFilePath: "/Fieldnote Media/Clients/Kiro Foods/Contract",
         visibility: V.CLIENT_VISIBLE,
@@ -1646,6 +1672,12 @@ async function wipe() {
 
 async function main() {
   console.log("Seeding TaskFiber…");
+  if (SHIFT_MS !== 0) {
+    const days = Math.round(SHIFT_MS / 86400000);
+    console.log(
+      `  dates shifted ${days > 0 ? "+" : ""}${days} days so "today" is ${seedToday.toDateString()}`,
+    );
+  }
   await wipe();
 
   const templates = await seedTemplates();

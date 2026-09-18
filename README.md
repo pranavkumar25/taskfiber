@@ -89,6 +89,12 @@ DATABASE_URL='<your pooled connection string>' npm run db:seed:remote
 The seed is idempotent — it wipes and rebuilds the three agencies, so you can
 re-run it whenever you want the demo back to its starting state.
 
+Its dates are anchored to the day it runs rather than written absolutely, so a
+demo seeded next month still reads correctly: one approval due tomorrow, three
+overdue by six, four and two days, a contract ending in twelve. Only the frame
+moves; every interval the design specified is preserved. Set
+`SEED_TODAY=2026-09-18` to reproduce the literal dates in the design files.
+
 ## Not finished, on purpose
 
 - **better-auth is not wired.** `currentWorkspace()` resolves the seeded owner
