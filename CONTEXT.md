@@ -121,6 +121,10 @@ they are infrastructure and proof.
 
 Decisions page: `4fbc72e4-d079-4195-9a7b-20a00a01b238`.
 
+**Board state**: 64 Done, 21 In Progress (screen and data model finished, running
+against a mock adapter), 7 Backlog (W10 offboarding, D06 recurring workstreams,
+X02 Pipedrive, N06 Slack, A01/A02 the AI drafts, S08 instrumentation).
+
 ---
 
 ## 5. Build milestones

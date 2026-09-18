@@ -1,36 +1,79 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# TaskFiber
 
-## Getting Started
+A client management portal for agencies and service providers.
 
-First, run the development server:
+An agency signs up, connects its Drive, picks a template for its kind of work,
+and gets a workspace from which it runs every client it has. For each client it
+builds a branded portal that shows that client the work: the timeline, the
+documents and decks, the deliverables awaiting their approval, the live
+performance dashboard, the contract, the invoices and the updates.
+
+Two interfaces, one data model — the **delivery side**, where the agency works,
+and the **client side**, one portal per client, reached by a link rather than a
+password.
+
+## The one rule
+
+**Nothing reaches the client automatically.** Every project, milestone,
+deliverable, note and comment carries a visibility state, and publishing is
+always an explicit action.
+
+This is not a UI convention here. `visibility` is a required, internal-defaulting
+column on every publishable model; every portal read goes through the single
+chokepoint in `src/server/visibility.ts`; and `npm test` fails if either of those
+stops being true. Agencies will not adopt a tool that might leak internal churn
+to a client, so the rule is the product.
+
+## Running it
 
 ```bash
+npm install
+npm run db:up        # Postgres in Docker, on port 5433
+cp .env.example .env # then set BETTER_AUTH_SECRET and PORTAL_LINK_SECRET
+npm run db:migrate
+npm run db:seed
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The delivery side is at `/`. A client portal needs a magic link — print one per
+contact with:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npx dotenv-cli -e .env -- npx tsx scripts/inspect.ts
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+`npm test` runs the invariants: visibility defaults, that no portal read returns
+an internal row, the three role predicates, and the approval record's single
+grammar across channels.
 
-## Learn More
+## Layout
 
-To learn more about Next.js, take a look at the following resources:
+```
+prisma/schema.prisma        40 models; `visibility` is required on six of them
+prisma/seed.ts              the design's casting: 3 agencies, 14 clients
+src/app/(delivery)/…        the agency workspace — screens 6.1–6.18
+src/app/(portal)/…          the client portal — screens 6.19–6.28
+src/app/api/…               magic-link redemption, preview, the WhatsApp webhook
+src/components/ui/…         the design system, built from Foundations.dc.html
+src/server/visibility.ts    the chokepoint every portal read goes through
+src/server/approvals.ts     the append-only record and its one sentence
+src/server/publish.ts       the only paths by which anything crosses to a client
+src/server/channels.ts      the WhatsApp copy, shared by preview and send
+tests/invariants.test.ts    the promises, as tests
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Where the design lives
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Everything derives from `~/Downloads/taskfiber design` — the v2.0 brief, the
+116-row feature list, and ten rendered design files. `CONTEXT.md` is the running
+record of what was built, what was decided and why, and what is deliberately not
+finished yet.
 
-## Deploy on Vercel
+## Not finished, on purpose
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **better-auth is not wired.** `currentWorkspace()` resolves the seeded owner
+  and throws in production unless `ALLOW_DEV_SESSION` is set. The client side is
+  fully real.
+- **Integrations are mock providers.** Every screen models connect state, sync
+  age and failure honestly, but nothing calls an external API yet. A real
+  provider is a second implementation of the same interface.
