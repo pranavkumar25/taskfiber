@@ -291,7 +291,11 @@ function crumbsFor(pathname: string): { label: string; href?: string }[] {
   };
 
   return seg.map((s, i) => ({
-    label: map[s] ?? decodeURIComponent(s).replace(/-/g, " "),
+    label: map[s] ?? titleCase(decodeURIComponent(s).replace(/-/g, " ")),
     href: "/" + seg.slice(0, i + 1).join("/"),
   }));
+}
+
+function titleCase(s: string) {
+  return s.replace(/\b[a-z]/g, (c) => c.toUpperCase());
 }

@@ -1,4 +1,5 @@
 import { DeliveryShell } from "@/components/delivery/shell";
+import { ToastProvider } from "@/components/ui/toaster";
 import { currentWorkspace, sidebarCounts } from "@/server/session";
 
 // Every delivery screen reads the workspace's live data, so none of them are
@@ -20,7 +21,7 @@ export default async function DeliveryLayout({ children }: LayoutProps<"/">) {
       member={{ name: member.name }}
       counts={counts}
     >
-      {children}
+      <ToastProvider>{children}</ToastProvider>
     </DeliveryShell>
   );
 }

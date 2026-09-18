@@ -927,6 +927,14 @@ async function seedKiroFoods(
       publishedByName: "Arjun Rao",
       publishedVersion: "v3",
       driveFolderPath: "/Fieldnote Media/Clients/Kiro Foods/Q4 performance campaign/Creative",
+      preview: {
+        tiles: [
+          { bg: "#1C1917", fg: "#FDE68A", eyebrow: "Kiro Foods · Diwali", headline: "Light up the table.", offer: "Festive boxes from ₹499 · Free delivery till 31 Oct" },
+          { bg: "#7C2D12", fg: "#FFEDD5", eyebrow: "Kiro Foods · Diwali", headline: "Gift a box, not a bar.", offer: "Handmade mithai · Ships pan-India" },
+          { bg: "#FEF3C7", fg: "#7C2D12", eyebrow: "Kiro Foods · Diwali", headline: "₹499 festive box.", offer: "Order by 28 Oct for Diwali delivery" },
+        ],
+        source: "Drive · 6 files",
+      },
       versions: {
         create: [
           { label: "v1", note: "First concepts", authorId: team.meera.id, createdAt: d(9, 4, 9, 30), publishedAt: d(9, 4, 10, 0) },
@@ -941,7 +949,14 @@ async function seedKiroFoods(
   const v2 = diwali.versions.find((v) => v.label === "v2")!;
   const v3 = diwali.versions.find((v) => v.label === "v3")!;
 
-  // The record that already exists: changes requested on v2, from email.
+  // The record that already exists: changes requested on v2, from email — and
+  // the request it closed, so approval turnaround is measurable.
+  await db.approvalRequest.create({
+    data: {
+      versionId: v2.id, approverId: karan.id, state: ApprovalState.CHANGES_REQUESTED,
+      requestedAt: d(9, 10, 13, 0), dueAt: d(9, 13), decidedAt: d(9, 11, 10, 24),
+    },
+  });
   await db.approvalRecord.create({
     data: {
       versionId: v2.id,
@@ -997,6 +1012,12 @@ async function seedKiroFoods(
     },
     include: { versions: true },
   });
+  await db.approvalRequest.create({
+    data: {
+      versionId: batch2.versions[0].id, approverId: karan.id, state: ApprovalState.APPROVED,
+      requestedAt: d(9, 9, 12, 35), dueAt: d(9, 12), decidedAt: d(9, 9, 14, 2),
+    },
+  });
   await db.approvalRecord.create({
     data: { versionId: batch2.versions[0].id, approverId: karan.id, decision: ApprovalDecision.APPROVED, channel: Channel.PORTAL, decidedAt: d(9, 9, 14, 2) },
   });
@@ -1021,6 +1042,12 @@ async function seedKiroFoods(
       versions: { create: [{ label: "v2", note: "Budget split agreed", authorId: team.meera.id, isCurrent: true, createdAt: d(8, 25, 17, 0), publishedAt: d(8, 26, 10, 0) }] },
     },
     include: { versions: true },
+  });
+  await db.approvalRequest.create({
+    data: {
+      versionId: mediaPlan.versions[0].id, approverId: karan.id, state: ApprovalState.APPROVED,
+      requestedAt: d(8, 26, 10, 0), dueAt: d(8, 29), decidedAt: d(8, 28, 16, 42),
+    },
   });
   await db.approvalRecord.create({
     data: { versionId: mediaPlan.versions[0].id, approverId: karan.id, decision: ApprovalDecision.APPROVED, channel: Channel.EMAIL, decidedAt: d(8, 28, 16, 42) },
@@ -1268,6 +1295,12 @@ async function seedNorthlight(templates: Record<string, string>) {
       name: "Identity system · logo suite", type: "Design", previewKind: PreviewKind.FIGMA,
       status: DeliverableStatus.IN_REVIEW, assetSummary: "Figma frame · live",
       ownerId: tanvi.id, figmaFileKey: "tidewater-identity",
+      preview: {
+        brandColor: "#0F2A3F", paperColor: "#F6F1E7", accentColor: "#C9A96A",
+        word: "TIDEWATER", sub: "HOTELS",
+        palette: ["#0F2A3F", "#2E6F8E", "#C9A96A", "#F6F1E7"],
+        source: "Figma · live frame · Drive",
+      },
       visibility: V.CLIENT_VISIBLE, publishedAt: d(9, 15, 18, 0),
       publishedByName: "Riya Sharma", publishedVersion: "v4",
       versions: {
@@ -1284,6 +1317,12 @@ async function seedNorthlight(templates: Record<string, string>) {
   const v3 = logo.versions.find((v) => v.label === "v3")!;
   const v4 = logo.versions.find((v) => v.label === "v4")!;
 
+  await db.approvalRequest.create({
+    data: {
+      versionId: v3.id, approverId: maya.id, state: ApprovalState.CHANGES_REQUESTED,
+      requestedAt: d(9, 8, 11, 0), dueAt: d(9, 11), decidedAt: d(9, 12, 9, 48),
+    },
+  });
   await db.approvalRecord.create({
     data: {
       versionId: v3.id, approverId: maya.id, decision: ApprovalDecision.CHANGES_REQUESTED,
@@ -1449,6 +1488,17 @@ async function seedCastAndCo(templates: Record<string, string>) {
       status: DeliverableStatus.IN_REVIEW, assetSummary: "Post · Instagram reel · 34 s",
       ownerId: neha.id, visibility: V.CLIENT_VISIBLE,
       publishedAt: d(9, 17, 11, 30), publishedByName: "Neha Kulkarni", publishedVersion: "v2",
+      preview: {
+        gradient: ["#3B2A1E", "#8B5E3C", "#F1D7B8"],
+        handle: "@aarushi.eats",
+        caption: "@aarushi.eats the festive glow set from @lumen.skincare ✨ #ad #lumenfestive",
+        progress: 38, duration: "34 s",
+        postingPlan: [
+          "Instagram reel · 24 Sep 2026 · 19:00 IST",
+          "Caption and disclosure as shown. Usage rights: 12 months paid social.",
+        ],
+        source: "Drive · MP4 · 34 s",
+      },
       versions: {
         create: [
           { label: "v1", note: "First cut", authorId: neha.id, createdAt: d(9, 12, 15, 0), publishedAt: d(9, 12, 16, 0) },
@@ -1462,6 +1512,12 @@ async function seedCastAndCo(templates: Record<string, string>) {
   const rv1 = reel.versions.find((v) => v.label === "v1")!;
   const rv2 = reel.versions.find((v) => v.label === "v2")!;
 
+  await db.approvalRequest.create({
+    data: {
+      versionId: rv1.id, approverId: devika.id, state: ApprovalState.CHANGES_REQUESTED,
+      requestedAt: d(9, 12, 16, 0), dueAt: d(9, 14), decidedAt: d(9, 14, 19, 12),
+    },
+  });
   await db.approvalRecord.create({
     data: {
       versionId: rv1.id, approverId: devika.id, decision: ApprovalDecision.CHANGES_REQUESTED,

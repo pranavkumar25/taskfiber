@@ -763,6 +763,10 @@ model Deliverable {
   driveFolderPath String?
   figmaFileKey    String?
 
+  /// What the portal actually renders: the ad tiles, the lockup and palette, or
+  /// the reel's gradient and caption. Previews are real, so the data is real.
+  preview Json?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
