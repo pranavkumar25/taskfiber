@@ -57,6 +57,12 @@
   --font-sans: "Pretendard", system-ui, -apple-system, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
 
+  /* --- Landing surfaces. The product UI never uses these. -------------- */
+  --color-night: #0b0c0e; /* the dark hero and roster */
+  --color-night-raised: #141518;
+  --color-night-line: #26282d;
+  --color-paper: #f7f7f4; /* alternating section ground */
+
   /* Two scales. The delivery side is dense and instrument-like; the client
      portal is spacious and typeset like a document. */
   --text-label: 11px; /* uppercase, +0.04em */
@@ -126,6 +132,14 @@
       opacity: 1;
     }
   }
+}
+
+/* Marketing headings only. LINE Seed JP is loaded by `next/font` on the
+   landing page and its variable is set there, not on :root — so this is
+   `inline`, resolving the variable on the element itself. Elsewhere it falls
+   back to Pretendard. */
+@theme inline {
+  --font-heading: var(--font-line-seed), "Pretendard", system-ui, sans-serif;
 }
 
 /* Self-hosted UI typeface. Geist Mono is loaded by `next/font` in the root

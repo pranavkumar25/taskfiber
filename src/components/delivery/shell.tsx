@@ -63,7 +63,7 @@ export function DeliveryShell({ agency, member, counts, children }: ShellProps) 
   const pathname = usePathname();
 
   const primary: NavItem[] = [
-    { href: "/", label: "Home", icon: House },
+    { href: "/home", label: "Home", icon: House },
     { href: "/clients", label: "Clients", icon: Users, count: counts.clients },
     { href: "/delivery", label: "Delivery", icon: LayoutGrid },
     { href: "/calendar", label: "Calendar", icon: Calendar },
@@ -93,7 +93,7 @@ export function DeliveryShell({ agency, member, counts, children }: ShellProps) 
 
   const isActive = (item: NavItem) =>
     pathname === item.href ||
-    (item.href !== "/" && pathname.startsWith(item.href)) ||
+    pathname.startsWith(item.href + "/") ||
     item.also?.some((h) => pathname.startsWith(h)) ||
     false;
 
@@ -139,7 +139,7 @@ export function DeliveryShell({ agency, member, counts, children }: ShellProps) 
 
         <div className="border-t border-ash p-2">
           <Link
-            href="/"
+            href="/home"
             className="flex h-7 items-center gap-2 rounded-control px-2 text-body text-charcoal hover:bg-ash/50"
             title="Everything waiting on you"
           >
@@ -274,7 +274,8 @@ function Breadcrumbs() {
 
 function crumbsFor(pathname: string): { label: string; href?: string }[] {
   const seg = pathname.split("/").filter(Boolean);
-  if (seg.length === 0) return [{ label: "Home" }];
+  if (seg.length === 0 || (seg.length === 1 && seg[0] === "home"))
+    return [{ label: "Home" }];
 
   const map: Record<string, string> = {
     clients: "Clients",

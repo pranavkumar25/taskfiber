@@ -35,7 +35,7 @@ npm run db:seed
 npm run dev
 ```
 
-The delivery side is at `/`. A client portal needs a magic link — print one per
+The landing page is at `/` and the delivery side starts at `/home`. A client portal needs a magic link — print one per
 contact with:
 
 ```bash
@@ -51,6 +51,7 @@ grammar across channels.
 ```
 prisma/schema.prisma        40 models; `visibility` is required on six of them
 prisma/seed.ts              the design's casting: 3 agencies, 14 clients
+src/app/page.tsx            the public landing page (static, no database)
 src/app/(delivery)/…        the agency workspace — screens 6.1–6.18
 src/app/(portal)/…          the client portal — screens 6.19–6.28
 src/app/api/…               magic-link redemption, preview, the WhatsApp webhook

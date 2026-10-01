@@ -302,7 +302,7 @@ export default async function SignupPage({ searchParams }: PageProps<"/signup">)
             {step === 3 ? "Map folders and continue" : "Continue"}
           </Link>
         ) : (
-          <Link href="/" className={buttonVariants({ variant: "primary" })}>
+          <Link href="/home" className={buttonVariants({ variant: "primary" })}>
             Open workspace
           </Link>
         )}
